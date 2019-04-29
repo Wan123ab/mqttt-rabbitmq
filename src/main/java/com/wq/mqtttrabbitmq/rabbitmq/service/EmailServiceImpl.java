@@ -10,11 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.Random;
 
 @Service
 @Slf4j
 public class EmailServiceImpl implements EmailService{
 
+    private Random random = new Random();
 
     @Resource( name = "rabbitTemplate" )
     private RabbitTemplate rabbitTemplate;
@@ -27,6 +29,9 @@ public class EmailServiceImpl implements EmailService{
 
     @Value("${mq.ttlroutekey}")
     private String ttlroutekey;
+
+    @Value("${mq.priorityroutekey}")
+    private String priorityroutekey;
 
     @Override
     public void sendEmail(MailMessageModel message) throws Exception {
@@ -62,4 +67,32 @@ public class EmailServiceImpl implements EmailService{
         }
 
     }
+
+    /**
+     * 发送邮件到优先级队列
+     * @param message
+     * @throws Exception
+     */
+    @Override
+    public void sendEmailPriority(MailMessageModel message) throws Exception {
+        try {
+
+            for (int i = 0; i < 50; i++) {
+                message.setId(i);
+                final int j = random.nextInt(10);
+                message.setLevel(j);
+                rabbitTemplate.convertAndSend(exchange, priorityroutekey, JsonUtils.obj2Json(message),
+                        //实现MessagePostProcessor后置处理器
+                        (msg) -> {
+                            msg.getMessageProperties().setPriority(j);
+                            return msg;
+                        }, new CorrelationData(message.getId() + ""));
+            }
+
+        } catch (Exception e) {
+            log.error("EmailServiceImpl.sendEmailPriority", ExceptionUtils.getMessage(e));
+        }
+
+    }
+
 }

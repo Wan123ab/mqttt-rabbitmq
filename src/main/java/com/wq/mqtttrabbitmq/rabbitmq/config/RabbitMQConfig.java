@@ -131,22 +131,22 @@ public class RabbitMQConfig {
          */
         rabbitTemplate.setMandatory(true);
 
+
         /**
-         * 发送确认（publisher acknowledgements）
+         * 发送确认（publisher acknowledgements）：消息发送到交换器成功
          * 生产者与broker之间的消息确认称为public confirms，public confirms机制用于解决生产者与
-         * Rabbitmq服务器之间消息可靠传输，它在消息服务器持久化消息后通知消息生产者发送成功。
+         * Rabbitmq服务器之间消息可靠传输，它在消息发送到交换器成功后通知消息生产者发送成功。
          */
         rabbitTemplate.setConfirmCallback((correlationData,ack,cause) -> {
 
             if(ack){
-                System.out.println("消息id为: 【"+correlationData+"】的消息，已经被ack成功");
+                System.out.println("消息id为: 【"+correlationData+"】的消息，发送到交换器成功");
             }else{
                 //TODO
                 // 发送端可以维护一个消息表（MYSQL），correlationData记录消息ID，当broker持久化失败时再次进行发送，
                 // 当然这样不可避免的就会在消息端可能会造成消息的重复消息。针对消费端重复消息，在消费端进行幂等处理
-                log.error("========【Broker持久化消息失败】,id为: 【"+correlationData+"】的消息，消息nack，失败原因是："+cause);
+                log.error("========【消息发送到交换器失败】,id为: 【"+correlationData+"】的消息，发送到交换器失败，失败原因是："+cause);
             }
-
         });
 
         /**
@@ -224,6 +224,28 @@ public class RabbitMQConfig {
     }
 
     @Bean
+    public Queue priorityqueue() {
+        String name = env.getProperty("mq.priorityqueue").trim();
+        // 是否持久化
+        boolean durable = StringUtils.isNotBlank(env.getProperty("mq.priorityqueue.durable").trim())?
+                Boolean.valueOf(env.getProperty("mq.priorityqueue.durable").trim()) : true;
+        // 仅创建者可以使用的私有队列，断开后自动删除
+        boolean exclusive = StringUtils.isNotBlank(env.getProperty("mq.priorityqueue.exclusive").trim())?
+                Boolean.valueOf(env.getProperty("mq.priorityqueue.exclusive").trim()) : false;
+        // 当所有消费客户端连接断开后，是否自动删除队列
+        boolean autoDelete = StringUtils.isNotBlank(env.getProperty("mq.priorityqueue.autoDelete").trim())?
+                Boolean.valueOf(env.getProperty("mq.priorityqueue.autoDelete").trim()) : false;
+
+        Map<String, Object> arguments = new HashMap<>();
+        /**
+         * 设置队列优先级别，有10个优先级别
+         */
+        arguments.put("x-max-priority",Integer.valueOf(env.getProperty("mq.priorityqueue.level")));
+
+        return new Queue(name, durable, exclusive, autoDelete,arguments);
+    }
+
+    @Bean
     public TopicExchange exchange() {
         String name = env.getProperty("mq.exchange").trim();
         // 是否持久化
@@ -244,6 +266,12 @@ public class RabbitMQConfig {
     public Binding binding() {
         String routekey = env.getProperty("mq.routekey").trim();
         return BindingBuilder.bind(queue()).to(exchange()).with(routekey);
+    }
+
+    @Bean
+    public Binding prioritybinding() {
+        String routekey = env.getProperty("mq.priorityroutekey").trim();
+        return BindingBuilder.bind(priorityqueue()).to(exchange()).with(routekey);
     }
 
     @Bean

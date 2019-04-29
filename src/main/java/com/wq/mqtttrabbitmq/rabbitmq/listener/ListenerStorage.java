@@ -143,7 +143,7 @@ public class ListenerStorage {
      * @param tag
      * @throws Exception
      */
-//    @RabbitListener(queues = "${mq.ttlqueue}")
+    @RabbitListener(queues = "${mq.ttlqueue}")
     public void onMessageTTL(Message message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
         String messageBody = null;
         MailMessageModel mailMessageModel = null;
@@ -156,6 +156,12 @@ public class ListenerStorage {
             String subject = mailMessageModel.getSubject();
             String text = mailMessageModel.getText();
 
+            //注意：此处休眠无法模拟消费延时，因为消息已进入监听器，除非消费失败再次入列，比如抛个异常
+            //配置文件中该队列TTL为5s，此处休眠6s模拟消息过期
+            TimeUnit.SECONDS.sleep(8);
+
+            //抛个异常使消息重新入列变成死信，然后被路由到死信队列
+            System.out.println(1/0);
             //手动ACK
             channel.basicAck(tag, false);
 
@@ -165,6 +171,68 @@ public class ListenerStorage {
             //拒绝消息，此消息将重新入列到broker
             channel.basicReject(tag,true);
             log.error("onMessageTTL消费消息失败，id={},message={}",mailMessageModel.getId(),messageBody,e);
+
+        }
+    }
+
+    /**优先队列监听器1
+     * 注意： 目前消费者并未完全按照优先级进行消费，原因是消费太快。当消息出现挤压的时候，会按照优先级进行消费。
+     * 测试方法：发送消息，注释监听器，此时broker中出现大量积压消息，当放开监听器再次启动容器，会发现严格按照优先级进行消费
+     * @param message
+     * @param channel
+     * @param tag
+     * @throws Exception
+     */
+    @RabbitListener(queues = "${mq.priorityqueue}")
+    public void onMessagePriority1(Message message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
+        String messageBody = null;
+        MailMessageModel mailMessageModel = null;
+        try {
+            // 解析RabbitMQ消息体
+            messageBody = new String(message.getBody());
+            mailMessageModel = JSONObject.toJavaObject(JSONObject.parseObject(messageBody), MailMessageModel.class);
+            // 发送邮件
+            String to =  mailMessageModel.getTo();
+            String subject = mailMessageModel.getSubject();
+            String text = mailMessageModel.getText();
+            int level = mailMessageModel.getLevel();
+
+            //手动ACK
+            channel.basicAck(tag, false);
+
+
+            log.info("onMessagePriority1消费消息成功，id={},level={},message={}",mailMessageModel.getId(),level,messageBody);
+        }catch (Exception e){
+            //拒绝消息，此消息将重新入列到broker
+            channel.basicReject(tag,true);
+            log.error("onMessagePriority1消费消息失败，id={},level={},message={}",mailMessageModel.getId(),mailMessageModel.getLevel(),messageBody,e);
+
+        }
+    }
+
+    @RabbitListener(queues = "${mq.priorityqueue}")
+    public void onMessagePriority2(Message message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
+        String messageBody = null;
+        MailMessageModel mailMessageModel = null;
+        try {
+            // 解析RabbitMQ消息体
+            messageBody = new String(message.getBody());
+            mailMessageModel = JSONObject.toJavaObject(JSONObject.parseObject(messageBody), MailMessageModel.class);
+            // 发送邮件
+            String to =  mailMessageModel.getTo();
+            String subject = mailMessageModel.getSubject();
+            String text = mailMessageModel.getText();
+            int level = mailMessageModel.getLevel();
+
+            //手动ACK
+            channel.basicAck(tag, false);
+
+
+            log.info("onMessagePriority2消费消息成功，id={},level={},message={}",mailMessageModel.getId(),level,messageBody);
+        }catch (Exception e){
+            //拒绝消息，此消息将重新入列到broker
+            channel.basicReject(tag,true);
+            log.error("onMessagePriority2消费消息失败，id={},level={},message={}",mailMessageModel.getId(),mailMessageModel.getLevel(),messageBody,e);
 
         }
     }

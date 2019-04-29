@@ -17,4 +17,11 @@ public interface EmailService {
      * @throws Exception
      */
     void sendEmailTTL(MailMessageModel mailMessageModel) throws Exception;
+
+    /**
+     * 发送邮件任务到优先级队列
+     * @param message
+     * @throws Exception
+     */
+    void sendEmailPriority(MailMessageModel message) throws Exception;
 }

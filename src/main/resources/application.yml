@@ -15,6 +15,40 @@ logging:
     dateformat: yyyy-MM-dd HH:mm:ss
   config: classpath:logback-spring.xml
 
+#spring-rabbitmq自动配置
+#spring:
+#  rabbitmq:
+#    host: localhost
+#    port: 5672
+#    # ===========================sender配置===================================
+#    # 是否开启消息发送到交换器（Exchange）后触发回调
+#    publisher-returns: true
+#    # 是否开启消息发送到队列（Queue）后触发回调
+#    publisher-confirms: true
+#    # 消息发送失败重试相关配置
+#    template:
+#      retry:
+#        enabled: true
+#        initial-interval: 3000ms
+#        max-attempts: 3
+#        max-interval: 10000ms
+#        multiplier: 1
+#
+#    # ==========================consumer配置==================================
+#    listener:
+#      simple:
+#        # 消息接收确认，可选模式：NONE（不确认）、AUTO（自动确认）、MANUAL（手动确认）
+#        acknowledge-mode: manual
+#        # 最小线程数量
+#        concurrency: 10
+#        # 最大线程数量
+#        max-concurrency: 10
+#        # 每个消费者可能未完成的最大未确认消息数量
+#        prefetch: 1
+
+
+
+
 
 
 

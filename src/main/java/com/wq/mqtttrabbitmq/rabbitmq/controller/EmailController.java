@@ -23,7 +23,7 @@ public class EmailController {
     @PostMapping(consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
     public MailMessageModel add(@RequestBody MailMessageModel mailMessageModel) throws Exception {
 
-        //调用30个线程发送30W调数据，测试
+        //调用最多30个线程发送30W条数据，测试
         for (int i = 0; i < 30; i++) {
             executor.execute(() -> {
 
@@ -39,15 +39,27 @@ public class EmailController {
             });
         }
 
-
         return mailMessageModel;
     }
 
+    /**
+     * 测试ttl+dlx（死信队列）实现延时任务
+     * @param mailMessageModel
+     * @return
+     * @throws Exception
+     */
     @PostMapping(value = "/ttl",consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
     public MailMessageModel addttl(@RequestBody MailMessageModel mailMessageModel) throws Exception {
 
         emailService.sendEmailTTL(mailMessageModel);
 
+        return mailMessageModel;
+    }
+
+    @PostMapping(value = "/priority",consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    public MailMessageModel addpriority(@RequestBody MailMessageModel mailMessageModel) throws Exception {
+
+        emailService.sendEmailPriority(mailMessageModel);
 
         return mailMessageModel;
     }

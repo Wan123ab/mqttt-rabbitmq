@@ -12,6 +12,10 @@ public class MailMessageModel {
     private String subject;
 
     private String text;
+    /**
+     * 消息优先级
+     */
+    private int level;
 
 
 }
