@@ -1,0 +1,23 @@
+server:
+  port: 8000
+
+logging:
+  level:
+
+   #不同目录下的日志可配置不同级别
+   org.springfromework.web: INFO
+   com.wq: debug
+  #采用相对路径方式将日志文件输出到【log/myspringboot.log】
+  file: log/mqttDemo.log
+  #采用绝对路径方式将日志文件输出到【/Users/wang/Downloads/myspringboot.log】
+  #file: /Users/wang/Downloads/myspringboot.log
+  pattern:
+    dateformat: yyyy-MM-dd HH:mm:ss
+  config: classpath:logback-spring.xml
+
+
+
+
+
+
+
