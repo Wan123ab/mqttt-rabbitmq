@@ -17,7 +17,9 @@ import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.RabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.rabbit.retry.MessageRecoverer;
 import org.springframework.amqp.rabbit.transaction.RabbitTransactionManager;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -57,15 +59,13 @@ public class RabbitMQConfig {
         connectionFactory.setVirtualHost(env.getProperty("mq.vhost").trim());
         connectionFactory.setUsername(env.getProperty("mq.username").trim());
         connectionFactory.setPassword(env.getProperty("mq.password").trim());
-
         /**
          * 设置异常处理器
          */
         connectionFactory.setExceptionHandler(new DefaultExceptionHandler(){
             @Override
             public void handleConfirmListenerException(Channel channel, Throwable e) {
-                System.out.println("=====消息确认发生异常=======");
-                e.printStackTrace();
+                log.error("=====消息确认发生异常=======",e);
             }
         });
         return connectionFactory;
@@ -95,6 +95,7 @@ public class RabbitMQConfig {
          * 设置为True，配合RabbitTemplate的setConfirmCallback使用。
          */
         factory.setPublisherConfirms(true);
+
         return factory;
     }
 
@@ -116,6 +117,26 @@ public class RabbitMQConfig {
          */
         //默认的确认模式是AcknowledgeMode.AUTO
         factory.setAcknowledgeMode(AcknowledgeMode.MANUAL);
+        //设置消费者监听器的消息转换器
+        factory.setMessageConverter(new Jackson2JsonMessageConverter());
+        /**
+         * 告诉broker一次性最多往1个channel投递100条消息。通常将这个值设置大一点可以提高处理速度（默认250）
+         * 1、这个参数只有手动确认才能生效。
+         * 2、客户端可以利用这个参数来提高性能和做流量控制。如果prefetch设置的是10,
+         * 当这个Channel上unacked的消息数量到达10条时，RabbitMq便不会在向这个channel发送消息
+         * 3、如果有事务的话，必须大于等于transaction数量。
+         * 4、可在Web控制台中channels选项卡进行查看
+         * 5、也可以在@RabbitListener上设置
+         */
+//        factory.setPrefetchCount(100);
+
+        /**
+         * 设置每一个Queue的并行消费者。这里设置10个相当于1个Queue有10个channel对其进行监听消费
+         * 相当于为某个Queue配置10个listener（1个listener默认启用1个线程，而1个线程只会打开1个channel）。
+         * 当设置为1的时候表示只有1个消费者，适用于需要严格按照先进先出规则的Queue
+         * 也可以在@RabbitListener上设置
+         */
+//        factory.setConcurrentConsumers(5);
         return factory;
     }
 
@@ -131,6 +152,10 @@ public class RabbitMQConfig {
          */
         rabbitTemplate.setMandatory(true);
 
+        /**
+         * 设置生产者发送消息消息转换器
+         */
+        rabbitTemplate.setMessageConverter(new Jackson2JsonMessageConverter());
 
         /**
          * 发送确认（publisher acknowledgements）：消息发送到交换器成功
@@ -242,6 +267,16 @@ public class RabbitMQConfig {
          */
         arguments.put("x-max-priority",Integer.valueOf(env.getProperty("mq.priorityqueue.level")));
 
+        /**
+         * 设置队列的死信交换器。
+         * 通常TTL+DLX一起使用实现延时任务
+         */
+        arguments.put("x-dead-letter-exchange",String.valueOf(env.getProperty("mq.dead_exchange").trim()));
+        /**
+         * 设置死信路由Key，若不设置默认使用当前Queue（ttlqueue）绑定的Key。
+         * 当出现实心消息时将按照此处指定的交换器和路由规则进入对应的死信队列deadqueue。
+         */
+        arguments.put("x-dead-letter-routing-key",String.valueOf(env.getProperty("mq.deadroutekey").trim()));
         return new Queue(name, durable, exclusive, autoDelete,arguments);
     }
 
@@ -330,6 +365,52 @@ public class RabbitMQConfig {
     public Binding deadbinding() {
         String deadroutekey = env.getProperty("mq.deadroutekey").trim();
         return BindingBuilder.bind(deadqueue()).to(deadexchange()).with(deadroutekey);
+    }
+
+    /**
+     * 日志队列
+     * @return
+     */
+    @Bean
+    public Queue logqueue() {
+        String name = env.getProperty("mq.logqueue").trim();
+        // 是否持久化
+        boolean durable = StringUtils.isNotBlank(env.getProperty("mq.logqueue.durable").trim())?
+                Boolean.valueOf(env.getProperty("mq.logqueue.durable").trim()) : true;
+        // 仅创建者可以使用的私有队列，断开后自动删除
+        boolean exclusive = StringUtils.isNotBlank(env.getProperty("mq.logqueue.exclusive").trim())?
+                Boolean.valueOf(env.getProperty("mq.logqueue.exclusive").trim()) : false;
+        // 当所有消费客户端连接断开后，是否自动删除队列
+        boolean autoDelete = StringUtils.isNotBlank(env.getProperty("mq.logqueue.autoDelete").trim())?
+                Boolean.valueOf(env.getProperty("mq.logqueue.autoDelete").trim()) : false;
+
+        return new Queue(name, durable, exclusive, autoDelete);
+    }
+
+    /**
+     * 日志交换机
+     * @return
+     */
+    @Bean
+    public DirectExchange logexchange() {
+        String name = env.getProperty("mq.logexchange").trim();
+        // 是否持久化
+        boolean durable = StringUtils.isNotBlank(env.getProperty("mq.logexchange.durable").trim())?
+                Boolean.valueOf(env.getProperty("mq.logexchange.durable").trim()) : true;
+        // 当所有消费客户端连接断开后，是否自动删除队列
+        boolean autoDelete = StringUtils.isNotBlank(env.getProperty("mq.logexchange.autoDelete").trim())?
+                Boolean.valueOf(env.getProperty("mq.logexchange.autoDelete").trim()) : false;
+        return new DirectExchange(name, durable, autoDelete);
+    }
+
+    /**
+     * 绑定日志队列和日志路由
+     * @return
+     */
+    @Bean
+    public Binding logbinding() {
+        String routekey = env.getProperty("mq.logroutekey").trim();
+        return BindingBuilder.bind(logqueue()).to(logexchange()).with(routekey);
     }
 
     /**

@@ -2,6 +2,7 @@ package com.wq.mqtttrabbitmq.rabbitmq.listener;
 
 import com.alibaba.fastjson.JSONObject;
 import com.rabbitmq.client.Channel;
+import com.wq.mqtttrabbitmq.es.EsClient;
 import com.wq.mqtttrabbitmq.rabbitmq.bean.MailMessageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.core.Message;
@@ -183,7 +184,7 @@ public class ListenerStorage {
      * @param tag
      * @throws Exception
      */
-    @RabbitListener(queues = "${mq.priorityqueue}")
+//    @RabbitListener(queues = "${mq.priorityqueue}")
     public void onMessagePriority1(Message message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
         String messageBody = null;
         MailMessageModel mailMessageModel = null;
@@ -210,30 +211,68 @@ public class ListenerStorage {
         }
     }
 
-    @RabbitListener(queues = "${mq.priorityqueue}")
-    public void onMessagePriority2(Message message, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
-        String messageBody = null;
-        MailMessageModel mailMessageModel = null;
+    /**
+     * 由于配置了消息转换器进行序列化和反序列化，所以此处可以直接用MailMessageModel mailMessageModel接参
+     * @param mailMessageModel
+     * @param channel
+     * @param tag
+     * @throws Exception
+     *
+     * containerFactory===>>>RabbitListenerContainerFactory的beanName
+     * concurrency===>>>指定消费者的线程数量,一个线程会打开一个Channel，一个队列上的消息只会被消费一次（不考虑消息重新入队列的情况）,
+     * 下面的表示至少开启3个线程，最多5个。线程的数目需要根据你的任务来决定，如果是计算密集型，线程的数目就应该少一些
+     */
+    @RabbitListener(queues = "${mq.priorityqueue}",containerFactory = "rabbitListenerContainerFactory",concurrency = "3-5")
+    public void onMessagePriority2(MailMessageModel mailMessageModel, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
         try {
-            // 解析RabbitMQ消息体
-            messageBody = new String(message.getBody());
-            mailMessageModel = JSONObject.toJavaObject(JSONObject.parseObject(messageBody), MailMessageModel.class);
             // 发送邮件
             String to =  mailMessageModel.getTo();
             String subject = mailMessageModel.getSubject();
             String text = mailMessageModel.getText();
             int level = mailMessageModel.getLevel();
 
+            //来个异常
+            System.out.println(1/0);
+
             //手动ACK
             channel.basicAck(tag, false);
 
 
-            log.info("onMessagePriority2消费消息成功，id={},level={},message={}",mailMessageModel.getId(),level,messageBody);
+            log.info("onMessagePriority2消费消息成功，id={},level={},message={}",mailMessageModel.getId(),level,mailMessageModel);
         }catch (Exception e){
             //拒绝消息，此消息将重新入列到broker
-            channel.basicReject(tag,true);
-            log.error("onMessagePriority2消费消息失败，id={},level={},message={}",mailMessageModel.getId(),mailMessageModel.getLevel(),messageBody,e);
+//            channel.basicReject(tag,true);
+            //拒绝消息，不再重新入列，而是进入死信队列
+            channel.basicReject(tag,false);
+            log.error("onMessagePriority2消费消息失败，id={},level={},message={}",mailMessageModel.getId(),mailMessageModel.getLevel(),mailMessageModel,e);
+            throw e;
+        }
+    }
 
+    /**
+     * 日志队列监听器，监听日志消息并写入ES
+     * @param jsonObject
+     * @param channel
+     * @param tag
+     * @throws Exception
+     */
+    @RabbitListener(queues = "${mq.logqueue}",containerFactory = "rabbitListenerContainerFactory",concurrency = "2-3")
+    public void onMessageLog(JSONObject jsonObject, Channel channel, @Header(AmqpHeaders.DELIVERY_TAG) long tag) throws Exception {
+        try {
+            /**
+             * 写入ES
+             */
+            EsClient.addData(jsonObject,"mqtt-rabbitmq","error_log");
+
+            //手动ACK
+            channel.basicAck(tag, false);
+
+            log.info("onMessageLog消费消息成功，jsonObject={}",jsonObject);
+        }catch (Exception e){
+            //拒绝消息，不再重新入列，而是进入死信队列
+            channel.basicReject(tag,false);
+            log.error("onMessageLog消费消息失败，jsonObject={}",jsonObject,e);
+            throw e;
         }
     }
 

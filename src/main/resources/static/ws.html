@@ -1,209 +1,207 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<meta charset="utf-8" />
-		<title>Paho MQTT.js Demo</title>
+<head>
+    <meta charset="utf-8"/>
+    <title>Paho MQTT.js Demo</title>
 
-		<!-- Bootstrap CSS -->
-		<link rel="stylesheet" href="css/bootstrap.css" type="text/css">
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="css/bootstrap.css" type="text/css">
 
-		<link rel="stylesheet" href="css/toastr.css" type="text/css">
+    <link rel="stylesheet" href="css/toastr.css" type="text/css">
 
-		<!--引入Eclipse Paho JavaScript Client js库-->
-		<script src="js/mqttws31.js" type="text/javascript"></script>
+    <!--引入Eclipse Paho JavaScript Client js库-->
+    <script src="js/mqttws31.js" type="text/javascript"></script>
 
-		<script src="js/jquery-3.3.1.js" type="text/javascript"></script>
-		<script src="js/toastr.js" type="text/javascript"></script>
-		<script>
-            $(function(){    //自定义参数
-                toastr.options = {
-                    closeButton: false,  	//是否显示关闭按钮（提示框右上角关闭按钮）。
-                    debug: false,  			//是否为调试。
-                    progressBar: true,  	//是否显示进度条（设置关闭的超时时间进度条）
-                    positionClass: "toast-top-center",  	//消息框在页面显示的位置
-                    onclick: null,  		//点击消息框自定义事件
-                    showDuration: "300",  	//显示动作时间
-                    hideDuration: "1000",  	//隐藏动作时间
-                    timeOut: "5000",  		//自动关闭超时时间
-                    extendedTimeOut: "1000",
-                    showEasing: "swing",
-                    hideEasing: "linear",
-                    showMethod: "fadeIn",  	//显示的方式，和jquery相同
-                    hideMethod: "fadeOut"  	//隐藏的方式，和jquery相同
-                    //等其他参数
-                };
-            });
-            function success1(){
-                toastr.success('success有消息了');	//ajax回调函数 toastr.success(data.message);
+    <script src="js/jquery-3.3.1.js" type="text/javascript"></script>
+    <script src="js/toastr.js" type="text/javascript"></script>
+    <script>
+        $(function () {    //自定义参数
+            toastr.options = {
+                closeButton: false,  	//是否显示关闭按钮（提示框右上角关闭按钮）。
+                debug: false,  			//是否为调试。
+                progressBar: true,  	//是否显示进度条（设置关闭的超时时间进度条）
+                positionClass: "toast-top-center",  	//消息框在页面显示的位置
+                onclick: null,  		//点击消息框自定义事件
+                showDuration: "300",  	//显示动作时间
+                hideDuration: "1000",  	//隐藏动作时间
+                timeOut: "5000",  		//自动关闭超时时间
+                extendedTimeOut: "1000",
+                showEasing: "swing",
+                hideEasing: "linear",
+                showMethod: "fadeIn",  	//显示的方式，和jquery相同
+                hideMethod: "fadeOut"  	//隐藏的方式，和jquery相同
+                //等其他参数
+            };
+        });
+
+        function success1() {
+            toastr.success('success有消息了');	//ajax回调函数 toastr.success(data.message);
+        }
+
+        function error1() {
+            toastr.error('error有消息了');
+        }
+
+        function info1() {
+            toastr.info('info有消息了');
+        }
+
+        function warning1() {
+            toastr.warning('warning有消息了');
+        }
+    </script>
+
+    <script>
+        var hostname = '127.0.0.1',
+            /*IOS 安卓等客户端可以直接使用 1883端口，但是web是通过 8083和 8084端口进行通讯的*/
+            port = 8083,
+            clientId = 'client-' + Math.floor(Math.random() * 100),
+            timeout = 5,
+            keepAlive = 50,
+            cleanSession = false,
+            ssl = false,
+            userName = 'admin',
+            password = 'public';
+
+        //建立客户端实例
+        client = new Paho.MQTT.Client(hostname, port, clientId);
+
+        //连接参数
+        var options = {
+            invocationContext: {
+                host: hostname,
+                port: port,
+                path: client.path,
+                clientId: clientId
+            },
+            timeout: timeout,
+            keepAliveInterval: keepAlive,
+            cleanSession: cleanSession,
+            useSSL: ssl,
+            userName: userName,
+            password: password,
+            onSuccess: onConnect,
+            onFailure: function (e) {
+                toastr.error('连接失败', e);
             }
-            function error1(){
-                toastr.error('error有消息了');
+        };
+
+        //连接服务器并注册连接成功处理事件
+        function onConnect() {
+            toastr.success('连接成功，当前clientId为' + clientId + ',开始订阅主题并处理事件！');
+
+            var topic = document.getElementById("topic1").value;
+            client.subscribe(topic);
+        }
+
+        //注册连接断开处理事件
+        client.onConnectionLost = onConnectionLost;
+
+        //注册消息接收处理事件
+        client.onMessageArrived = onMessageArrived;
+
+        function onConnectionLost(responseObject) {
+            console.log(responseObject);
+            if (responseObject.errorCode !== 0) {
+                console.log("onConnectionLost:" + responseObject.errorMessage);
+                console.log("连接已断开");
+                toastr.warning('连接已断开');
             }
-            function info1(){
-                toastr.info('info有消息了');
+        }
+
+        function onMessageArrived(message) {
+            var msg = message.payloadString;
+
+            console.log("收到消息:" + msg);
+            toastr.info("收到消息:" + msg);
+
+            msg = new Date().Format("yyyy-MM-dd hh:mm:ss") + "   " + msg;
+
+            var html = "<input id=\"txt\" value='" + msg + "'  /><br>";
+
+            $('#txt').append(html);
+
+        }
+
+        //连接服务端
+        function connect() {
+
+            client.connect(options);
+        }
+
+        //断开客户端连接
+        function disconnect() {
+
+            toastr.warning('客户端已断开连接');
+            client.disconnect();
+
+        }
+
+        //发送消息
+        function send() {
+            var msg = document.getElementById("msg").value;
+            var topic = document.getElementById("topic2").value;
+            if (msg) {
+                message = new Paho.MQTT.Message(msg);
+                message.destinationName = topic;
+
+                client.send(message);
+                document.getElementById("msg").value = "";
             }
-            function warning1(){
-                toastr.warning('warning有消息了');
-            }
-		</script>
+        }
 
-		<script>
-			var hostname = '127.0.0.1',
-				/*IOS 安卓等客户端可以直接使用 1883端口，但是web是通过 8083和 8084端口进行通讯的*/
-			    port = 8083,
-			    clientId = 'client-'+Math.floor(Math.random()*100),
-			    timeout = 5,
-			    keepAlive = 50,
-			    cleanSession = false,
-			    ssl = false,
-			    userName = 'admin',
-			    password = 'public';
+        var count = 0;
 
-            //建立客户端实例
-			client = new Paho.MQTT.Client(hostname, port, clientId);  
+        function start() {
+            window.tester = window.setInterval(function () {
+                if (client.isConnected) {
+                    var s = "{time:" + new Date().Format("yyyy-MM-dd hh:mm:ss") + ", content:" + (count++) + ", from: web console}";
+                    message = new Paho.MQTT.Message(s);
+                    message.destinationName = topic;
+                    client.send(message);
+                }
+            }, 1000);
+        }
 
-			//连接参数
-			var options = {  
-			    invocationContext: {  
-			        host : hostname,  
-			        port: port,  
-			        path: client.path,  
-			        clientId: clientId  
-			    },  
-			    timeout: timeout,  
-			    keepAliveInterval: keepAlive,
-			    cleanSession: cleanSession,  
-			    useSSL: ssl,  
-			    userName: userName,  
-			    password: password,  
-			    onSuccess: onConnect,  
-			    onFailure: function(e){  
-                    toastr.error('连接失败',e);
-			    }  
-			};  
+        function stop() {
+            window.clearInterval(window.tester);
+        }
 
-			//连接服务器并注册连接成功处理事件  
-			function onConnect() {  
-                toastr.success('连接成功，当前clientId为'+clientId+',开始订阅主题并处理事件！');
+        Date.prototype.Format = function (fmt) { //author: meizz
+            var o = {
+                "M+": this.getMonth() + 1, //月份
+                "d+": this.getDate(), //日
+                "h+": this.getHours(), //小时
+                "m+": this.getMinutes(), //分
+                "s+": this.getSeconds(), //秒
+                "q+": Math.floor((this.getMonth() + 3) / 3), //季度
+                "S": this.getMilliseconds() //毫秒
+            };
+            if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
+            for (var k in o)
+                if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
+            return fmt;
+        }
 
-                var topic = document.getElementById("topic1").value;
-			    client.subscribe(topic);
-			}
+    </script>
+</head>
+<body>
 
-            //注册连接断开处理事件
-			client.onConnectionLost = onConnectionLost;
+<p>订阅主题: <input type="text" size="35" id="topic1"/></p>
+<input type="button" class="btn btn-primary" value="连接" onclick="connect()"/>
+<input type="button" class="btn btn-danger" value="断开连接" onclick="disconnect()"/>
 
-            //注册消息接收处理事件
-			client.onMessageArrived = onMessageArrived;
+<p>目标主题: <input type="text" size="35" id="topic2"/></p>
 
-			function onConnectionLost(responseObject) {
-				console.log(responseObject);
-			    if (responseObject.errorCode !== 0) {  
-			        console.log("onConnectionLost:"+responseObject.errorMessage);  
-			        console.log("连接已断开");
-                    toastr.warning('连接已断开');
-			    }  
-			} 
-			
-			function onMessageArrived(message) {
-			    var msg = message.payloadString;
+<br>
+<input type="text" id="msg"/>
+<input type="button" class="btn btn-primary" value="Send" onclick="send()"/>
+<input type="button" class="btn btn-success" value="Start" onclick="start()"/>
+<input type="button" class="btn btn-info" value="Stop" onclick="stop()"/>
 
-				console.log("收到消息:"+msg);
-				toastr.info("收到消息:"+msg);
+<div id="txt">
 
-				msg = new Date().Format("yyyy-MM-dd hh:mm:ss") +"   "+ msg;
-
-				var html = "<input id=\"txt\" value='"+msg+"'  /><br>";
-
-				$('#txt').append(html);
-
-			}
-
-			//连接服务端
-            function connect(){
-
-                client.connect(options);
-            }
-
-            //断开客户端连接
-            function disconnect(){
-
-                toastr.warning('客户端已断开连接');
-			    client.disconnect();
-
-			}
-
-            //发送消息
-			function send(){
-				var s = document.getElementById("msg").value;
-				var topic = document.getElementById("topic2").value;
-				var id = document.getElementById("clientId").value;
-				if(s){
-				    //构建消息体
-				    var msg = {'content':s,'clientId':id};
-
-					message = new Paho.MQTT.Message(JSON.stringify(msg));
-			    	message.destinationName = topic;
-			    	if (id){
-                        message.id = id;
-					}
-			   	 	client.send(message);
-			   	 	document.getElementById("msg").value = "";
-				}
-			}
-			
-			var count = 0;
-			
-			function start(){
-				window.tester = window.setInterval(function(){
-				if(client.isConnected){
-					var s = "{time:"+new Date().Format("yyyy-MM-dd hh:mm:ss")+", content:"+(count++)+", from: web console}";
-					message = new Paho.MQTT.Message(s);
-			    	message.destinationName = topic;
-			   		client.send(message);
-				}
-			}, 1000);
-			}
-			
-			function stop(){
-				window.clearInterval(window.tester);
-			}
-			
-			Date.prototype.Format = function (fmt) { //author: meizz 
-			    var o = {
-			        "M+": this.getMonth() + 1, //月份 
-			        "d+": this.getDate(), //日 
-			        "h+": this.getHours(), //小时 
-			        "m+": this.getMinutes(), //分 
-			        "s+": this.getSeconds(), //秒 
-			        "q+": Math.floor((this.getMonth() + 3) / 3), //季度 
-			        "S": this.getMilliseconds() //毫秒 
-			    };
-			    if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
-			    for (var k in o)
-			    if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
-			    return fmt;
-			}
-			
-		</script>
-	</head>
-	<body>
-
-		<p>订阅主题:        <input type="text" size="35" id="topic1" /></p>
-		<input type="button" class="btn btn-primary" value="连接" onclick="connect()"/>
-		<input type="button" class="btn btn-danger" value="断开连接" onclick="disconnect()"/>
-
-		<p>目标主题: <input type="text" size="35" id="topic2" /></p>
-
-		<br>
-		<input type="text" id="msg"/>
-		<input type="button" class="btn btn-primary" value="Send" onclick="send()"/>
-		<input type="button" class="btn btn-success" value="Start" onclick="start()"/>
-		<input type="button" class="btn btn-info" value="Stop" onclick="stop()"/>
-
-		<div id="txt">
-
-		</div>
-	</body>
+</div>
+</body>
 </html>
 

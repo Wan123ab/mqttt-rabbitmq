@@ -13,7 +13,17 @@ logging:
   #file: /Users/wang/Downloads/myspringboot.log
   pattern:
     dateformat: yyyy-MM-dd HH:mm:ss
-  config: classpath:logback-spring.xml
+  config: classpath:log4j2.xml
+
+# 启用消费端消费失败重试配置
+#spring:
+#  rabbitmq:
+#    listener:
+#      simple:
+#        retry:
+#          enabled: true
+#          max-attempts: 3
+
 
 #spring-rabbitmq自动配置
 #spring:
@@ -45,6 +55,10 @@ logging:
 #        max-concurrency: 10
 #        # 每个消费者可能未完成的最大未确认消息数量
 #        prefetch: 1
+#        # 消息消费失败重试配置
+#        retry:
+#          enabled: true
+#          max-attempts: 3
 
 
 

@@ -24,4 +24,11 @@ public interface EmailService {
      * @throws Exception
      */
     void sendEmailPriority(MailMessageModel message) throws Exception;
+
+    /**
+     * 发送指定个数的邮件任务到优先级队列
+     * @param mailMessageModel
+     * @param num
+     */
+    void sendEmailPriority(MailMessageModel mailMessageModel, Integer num);
 }

@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.integration.annotation.IntegrationComponentScan;
 import org.springframework.integration.annotation.MessagingGateway;
 import org.springframework.integration.annotation.ServiceActivator;
@@ -25,6 +26,7 @@ import org.springframework.messaging.handler.annotation.Header;
  * 自定义的MQTT生产端和消费端，用于测试(监听client有没有成功发送消息)
  */
 @Configuration
+@PropertySource(encoding = "UTF-8", value = {"classpath:mqtt.properties"})
 @IntegrationComponentScan
 public class Springconfig {
 

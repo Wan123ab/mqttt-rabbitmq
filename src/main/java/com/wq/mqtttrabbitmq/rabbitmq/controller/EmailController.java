@@ -64,6 +64,14 @@ public class EmailController {
         return mailMessageModel;
     }
 
+    @PostMapping(value = "/priority/{num}",consumes = MediaType.APPLICATION_JSON_UTF8_VALUE)
+    public MailMessageModel addpriority(@RequestBody MailMessageModel mailMessageModel,@PathVariable Integer num) throws Exception {
+
+        emailService.sendEmailPriority(mailMessageModel,num);
+
+        return mailMessageModel;
+    }
+
     public synchronized void incr(){
 
         index ++ ;

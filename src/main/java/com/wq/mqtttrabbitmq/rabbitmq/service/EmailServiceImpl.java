@@ -7,6 +7,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
@@ -81,7 +82,7 @@ public class EmailServiceImpl implements EmailService{
                 message.setId(i);
                 final int j = random.nextInt(10);
                 message.setLevel(j);
-                rabbitTemplate.convertAndSend(exchange, priorityroutekey, JsonUtils.obj2Json(message),
+                rabbitTemplate.convertAndSend(exchange, priorityroutekey, message,
                         //实现MessagePostProcessor后置处理器
                         (msg) -> {
                             msg.getMessageProperties().setPriority(j);
@@ -93,6 +94,27 @@ public class EmailServiceImpl implements EmailService{
             log.error("EmailServiceImpl.sendEmailPriority", ExceptionUtils.getMessage(e));
         }
 
+    }
+
+    @Override
+    public void sendEmailPriority(MailMessageModel message, Integer num) {
+        try {
+
+            for (int i = 0; i < num; i++) {
+                message.setId(i);
+                final int j = random.nextInt(10);
+                message.setLevel(j);
+                rabbitTemplate.convertAndSend(exchange, priorityroutekey, message,
+                        //实现MessagePostProcessor后置处理器
+                        (msg) -> {
+                            msg.getMessageProperties().setPriority(j);
+                            return msg;
+                        }, new CorrelationData(message.getId() + ""));
+            }
+
+        } catch (Exception e) {
+            log.error("EmailServiceImpl.sendEmailPriority,num={}", ExceptionUtils.getMessage(e),num);
+        }
     }
 
 }
