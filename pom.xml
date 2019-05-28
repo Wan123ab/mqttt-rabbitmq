@@ -113,6 +113,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!--根据IP解析注册地址-->
+        <dependency>
+            <groupId>org.lionsoul</groupId>
+            <artifactId>ip2region</artifactId>
+            <version>1.7</version>
+        </dependency>
+
     </dependencies>
 
     <build>

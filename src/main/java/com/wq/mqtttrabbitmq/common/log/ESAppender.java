@@ -16,14 +16,18 @@ import org.apache.logging.log4j.core.config.plugins.PluginFactory;
 import org.apache.logging.log4j.core.impl.ThrowableProxy;
 import org.apache.logging.log4j.core.layout.PatternLayout;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+/**
+ * Log4j2自定义Appender，用于解析LogEvent并进行封装，
+ * 然后通过线程池发送到RabbitMQ
+ */
 @Plugin(name = "ESAppender", category = "Core", elementType = "appender", printObject = true)
 public class ESAppender extends AbstractAppender {
 
@@ -48,17 +52,19 @@ public class ESAppender extends AbstractAppender {
         ThrowableProxy thrownProxy = event.getThrownProxy();
 
         jsonObject.put("time", sdf.format(new Date()));
+
         jsonObject.put("className", event.getLoggerName());
         jsonObject.put("methodName", event.getSource().getMethodName());
         jsonObject.put("logMessage", event.getMessage().getFormattedMessage());
 
         jsonObject.put("ip", IPUtils.getIp());
+        jsonObject.put("city",IPUtils.ip2City(String.valueOf(jsonObject.get("ip"))));
         jsonObject.put("logLevel", event.getLevel().name());
         jsonObject.put("logThread", event.getThreadName());
 
         jsonObject.put("errorMsg", thrownProxy == null ? "" : thrownProxy.getMessage());
         jsonObject.put("exception", thrownProxy == null ? "" : thrownProxy.getName());
-        jsonObject.put("stackTrace", thrownProxy == null ? "" : thrownProxy.getExtendedStackTraceAsString());
+        jsonObject.put("stackTrace", thrownProxy == null ? "" : parseException(thrownProxy.getStackTrace()));
 
         executorService.execute(() -> {
             try {
@@ -71,6 +77,18 @@ public class ESAppender extends AbstractAppender {
                 e.printStackTrace();
             }
         });
+    }
+
+    public String parseException(StackTraceElement[] stackTrace) {
+
+        StringBuffer sb = new StringBuffer();
+        sb.append("\n");
+        Arrays.stream(stackTrace).forEach((e) -> {
+            sb.append(e.getClassName() + "." + e.getMethodName() + "(" + e.getFileName() + ":" + e.getLineNumber() + ")").append("\n");
+        });
+
+        return sb.toString();
+
     }
 
     /**
@@ -90,7 +108,7 @@ public class ESAppender extends AbstractAppender {
                                             @PluginAttribute("type") String type,
                                             @PluginElement("properties") Property[] properties) {
         if (name == null) {
-            LOGGER.error("No name provided for MyCustomAppenderImpl");
+            LOGGER.error("No name provided for ESAppender");
             return null;
         }
         if (layout == null) {

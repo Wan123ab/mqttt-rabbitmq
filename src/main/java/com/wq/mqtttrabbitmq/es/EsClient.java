@@ -85,7 +85,7 @@ public class EsClient {
         if (dResponse.isAcknowledged()) {
             log.info("delete index " + index + "  successfully!");
         } else {
-            log.info("Fail to delete index " + index);
+            log.error("Fail to delete index " + index);
         }
         return dResponse.isAcknowledged();
     }
@@ -101,7 +101,7 @@ public class EsClient {
         if (inExistsResponse.isExists()) {
             log.info("Index [" + index + "] is exist!");
         } else {
-            log.info("Index [" + index + "] is not exist!");
+            log.error("Index [" + index + "] is not exist!");
         }
         return inExistsResponse.isExists();
     }
